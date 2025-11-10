@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { User, Settings } from "lucide-react";
+import { User, Settings, Users } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,6 +48,15 @@ export function Header() {
             >
               Progress
             </Link>
+            {isAdmin && (
+              <Link
+                to="/users"
+                className="text-sm font-medium text-foreground hover:text-primary transition-colors flex items-center gap-1"
+              >
+                <Users className="h-4 w-4" />
+                Users
+              </Link>
+            )}
           </nav>
 
           <div className="flex items-center gap-3">

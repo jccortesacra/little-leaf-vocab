@@ -158,11 +158,39 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_management"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
-      [_ in never]: never
+      user_management: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string | null
+          role: Database["public"]["Enums"]["app_role"] | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          role?: never
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          role?: never
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
@@ -174,6 +202,13 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       promote_to_admin: { Args: { user_email: string }; Returns: undefined }
+      set_user_role: {
+        Args: {
+          new_role: Database["public"]["Enums"]["app_role"]
+          target_user_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "user"
