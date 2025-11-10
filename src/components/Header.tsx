@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { User, Settings, Users } from "lucide-react";
+import { LogOut, Settings, Users } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { useAuth } from "@/hooks/useAuth";
@@ -69,11 +69,10 @@ export function Header() {
             {user && (
               <Button
                 variant="ghost"
-                size="icon"
-                className="rounded-full bg-accent"
                 onClick={signOut}
               >
-                <User className="h-5 w-5" />
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
               </Button>
             )}
           </div>
