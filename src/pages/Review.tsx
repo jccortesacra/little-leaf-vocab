@@ -7,13 +7,15 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Volume2, ArrowRight, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, RotateCcw } from "lucide-react";
+import { AudioPlayer } from "@/components/AudioPlayer";
 
 interface FlashCard {
   id: string;
   front: string;
   back: string;
   pronunciation: string | null;
+  audio_url: string | null;
 }
 
 export default function Review() {
@@ -42,7 +44,7 @@ export default function Review() {
     try {
       let query = supabase
         .from('decks')
-        .select('id, english_word as front, mongolian_translation as back, phonetic as pronunciation, audio_url');
+        .select('id, mongolian_translation as front, english_word as back, phonetic as pronunciation, audio_url');
 
       if (deckId) {
         query = query.eq('id', deckId);
@@ -146,42 +148,49 @@ export default function Review() {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-8 max-w-3xl">
-        <div className="mb-6">
-          <p className="text-center text-muted-foreground mb-2">
-            {currentIndex + 1} of {cards.length} cards reviewed
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/dashboard')}
+          className="mb-4"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Exit Review
+        </Button>
+
+        <div className="mb-8">
+          <p className="text-center text-sm text-muted-foreground mb-3">
+            {currentIndex + 1} of {cards.length} cards
           </p>
           <Progress value={progressPercent} className="h-2" />
         </div>
 
         <Card
-          className="mb-8 cursor-pointer transition-all hover:shadow-lg min-h-[400px] flex items-center justify-center"
-          onClick={() => setIsFlipped(!isFlipped)}
+          className="mb-8 cursor-pointer transition-all hover:shadow-lg min-h-[450px] flex items-center justify-center"
+          onClick={() => !isFlipped && setIsFlipped(true)}
         >
-          <CardContent className="py-16 text-center">
-            <p className="text-sm text-muted-foreground mb-4">Mongolian</p>
+          <CardContent className="py-20 text-center w-full">
             {!isFlipped ? (
               <>
-                <h2 className="text-5xl font-bold mb-4">{currentCard.front}</h2>
+                <h2 className="text-7xl font-bold mb-6 px-4">{currentCard.front}</h2>
                 {currentCard.pronunciation && (
-                  <p className="text-xl text-muted-foreground mb-6">/{currentCard.pronunciation}/</p>
+                  <p className="text-2xl text-muted-foreground/60 mb-8">/{currentCard.pronunciation}/</p>
                 )}
-                <Button
-                  variant="ghost"
-                  size="lg"
-                  className="rounded-full"
-                >
-                  <Volume2 className="h-6 w-6" />
-                </Button>
-                <div className="flex items-center justify-center gap-2 mt-8 text-muted-foreground">
+                <div className="flex justify-center mb-8">
+                  <AudioPlayer audioUrl={currentCard.audio_url} word={currentCard.front} />
+                </div>
+                <div className="flex items-center justify-center gap-2 text-muted-foreground">
                   <RotateCcw className="h-4 w-4" />
-                  <span className="text-sm">Click card to flip</span>
+                  <span className="text-sm">Click to see answer</span>
                 </div>
               </>
             ) : (
-              <div className="space-y-4">
-                <h3 className="text-3xl font-semibold text-primary mb-4">{currentCard.back}</h3>
-                <div className="h-px bg-border my-6"></div>
-                <p className="text-muted-foreground text-sm">Front: {currentCard.front}</p>
+              <div className="space-y-6">
+                <div className="text-5xl font-bold mb-4 px-4">{currentCard.front}</div>
+                {currentCard.pronunciation && (
+                  <p className="text-xl text-muted-foreground/60">/{currentCard.pronunciation}/</p>
+                )}
+                <div className="h-px bg-border my-8 max-w-md mx-auto"></div>
+                <div className="text-3xl font-semibold text-primary">{currentCard.back}</div>
               </div>
             )}
           </CardContent>
@@ -189,56 +198,47 @@ export default function Review() {
 
         {isFlipped && (
           <div className="space-y-4">
-            <p className="text-center font-medium mb-4">How well did you know this?</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <p className="text-center font-medium mb-4 text-lg">How well did you know this?</p>
+            <div className="grid grid-cols-4 gap-3 mb-4">
               <Button
                 variant="outline"
-                className="h-16"
+                className="h-20 flex flex-col items-center justify-center bg-background hover:bg-accent"
                 onClick={() => handleRating(1)}
               >
-                <div className="text-center">
-                  <div className="font-semibold">Again</div>
-                  <div className="text-xs text-muted-foreground">&lt;10m</div>
-                </div>
+                <div className="font-semibold text-base">Again</div>
+                <div className="text-xs text-muted-foreground mt-1">&lt;10m</div>
               </Button>
               <Button
                 variant="outline"
-                className="h-16"
+                className="h-20 flex flex-col items-center justify-center bg-background hover:bg-accent"
                 onClick={() => handleRating(2)}
               >
-                <div className="text-center">
-                  <div className="font-semibold">Hard</div>
-                  <div className="text-xs text-muted-foreground">1h</div>
-                </div>
+                <div className="font-semibold text-base">Hard</div>
+                <div className="text-xs text-muted-foreground mt-1">1h</div>
               </Button>
               <Button
                 variant="outline"
-                className="h-16 border-primary"
+                className="h-20 flex flex-col items-center justify-center bg-background hover:bg-accent border-2 border-primary"
                 onClick={() => handleRating(3)}
               >
-                <div className="text-center">
-                  <div className="font-semibold text-primary">Good</div>
-                  <div className="text-xs text-muted-foreground">1d</div>
-                </div>
+                <div className="font-semibold text-base text-primary">Good</div>
+                <div className="text-xs text-muted-foreground mt-1">1d</div>
               </Button>
               <Button
                 variant="outline"
-                className="h-16"
+                className="h-20 flex flex-col items-center justify-center bg-background hover:bg-accent"
                 onClick={() => handleRating(4)}
               >
-                <div className="text-center">
-                  <div className="font-semibold">Easy</div>
-                  <div className="text-xs text-muted-foreground">3d</div>
-                </div>
+                <div className="font-semibold text-base">Easy</div>
+                <div className="text-xs text-muted-foreground mt-1">3d</div>
               </Button>
             </div>
             <Button
-              variant="outline"
-              className="w-full mt-4"
+              className="w-full h-14 text-base font-semibold bg-slate-800 hover:bg-slate-700 text-white"
               onClick={() => handleRating(3)}
             >
               Next Card
-              <ArrowRight className="ml-2 h-4 w-4" />
+              <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </div>
         )}
