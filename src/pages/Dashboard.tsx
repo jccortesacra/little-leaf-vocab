@@ -140,22 +140,13 @@ export default function Dashboard() {
             <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
 
-          <div className="flex gap-6 text-sm">
-            <Button
-              variant="link"
-              className="text-foreground hover:text-primary"
-              onClick={() => navigate('/decks')}
-            >
-              Add New Words
-            </Button>
-            <Button
-              variant="link"
-              className="text-foreground hover:text-primary"
-              onClick={() => navigate('/decks')}
-            >
-              Browse Vocabulary
-            </Button>
-          </div>
+          <Button
+            variant="link"
+            className="text-foreground hover:text-primary"
+            onClick={() => navigate('/decks')}
+          >
+            Browse Vocabulary
+          </Button>
         </div>
       </main>
     </div>
