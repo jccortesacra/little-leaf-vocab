@@ -158,41 +158,22 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "user_roles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_management"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-    }
-    Views: {
-      user_management: {
-        Row: {
-          created_at: string | null
-          email: string | null
-          id: string | null
-          role: Database["public"]["Enums"]["app_role"] | null
-        }
-        Insert: {
-          created_at?: string | null
-          email?: string | null
-          id?: string | null
-          role?: never
-        }
-        Update: {
-          created_at?: string | null
-          email?: string | null
-          id?: string | null
-          role?: never
-        }
         Relationships: []
       }
     }
+    Views: {
+      [_ in never]: never
+    }
     Functions: {
+      get_users_list: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

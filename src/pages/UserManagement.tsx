@@ -50,10 +50,7 @@ export default function UserManagement() {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('user_management')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.rpc('get_users_list');
 
       if (error) throw error;
       setUsers(data || []);
