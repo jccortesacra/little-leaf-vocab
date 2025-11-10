@@ -42,15 +42,22 @@ export default function Review() {
   const fetchCards = async () => {
     setLoadingCards(true);
     try {
-      let query = supabase
+      // Fetch cards from database - Mongolian as front, English as back
+      const queryBuilder = supabase
         .from('decks')
-        .select('id, mongolian_translation as front, english_word as back, phonetic as pronunciation, audio_url');
+        .select(`
+          id,
+          mongolian_translation,
+          english_word,
+          phonetic,
+          audio_url
+        `);
 
       if (deckId) {
-        query = query.eq('id', deckId);
+        queryBuilder.eq('id', deckId);
       }
 
-      const { data, error } = await query.limit(20);
+      const { data, error } = await queryBuilder.limit(20);
       
       if (error) throw error;
 
@@ -60,7 +67,16 @@ export default function Review() {
         return;
       }
 
-      setCards(data as any);
+      // Transform data to match FlashCard interface
+      const transformedCards = data.map(card => ({
+        id: card.id,
+        front: card.mongolian_translation,
+        back: card.english_word,
+        pronunciation: card.phonetic,
+        audio_url: card.audio_url
+      }));
+
+      setCards(transformedCards);
     } catch (error: any) {
       console.error('Error fetching words:', error);
       toast.error('Failed to load review');
