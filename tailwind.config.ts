@@ -77,10 +77,20 @@ export default {
             height: "0",
           },
         },
+        "flip-to-back": {
+          "0%": { transform: "rotateY(0deg)" },
+          "100%": { transform: "rotateY(180deg)" },
+        },
+        "flip-to-front": {
+          "0%": { transform: "rotateY(180deg)" },
+          "100%": { transform: "rotateY(0deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "flip-to-back": "flip-to-back 0.6s ease-in-out forwards",
+        "flip-to-front": "flip-to-front 0.6s ease-in-out forwards",
       },
     },
   },

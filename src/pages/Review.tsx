@@ -180,13 +180,19 @@ export default function Review() {
           <Progress value={progressPercent} className="h-2" />
         </div>
 
-        <Card
-          className="mb-8 cursor-pointer transition-all hover:shadow-lg min-h-[450px] flex items-center justify-center"
-          onClick={() => !isFlipped && setIsFlipped(true)}
-        >
-          <CardContent className="py-20 text-center w-full">
-            {!isFlipped ? (
-              <>
+        <div className="mb-8 perspective-[1000px]">
+          <div
+            className={`relative w-full min-h-[450px] transition-transform duration-600 ease-in-out cursor-pointer ${
+              isFlipped ? '[transform:rotateY(180deg)]' : ''
+            }`}
+            style={{ transformStyle: 'preserve-3d' }}
+            onClick={() => !isFlipped && setIsFlipped(true)}
+          >
+            {/* Front of card */}
+            <Card
+              className="absolute inset-0 flex items-center justify-center transition-all hover:shadow-lg [backface-visibility:hidden]"
+            >
+              <CardContent className="py-20 text-center w-full">
                 <h2 className="text-7xl font-bold mb-6 px-4">{currentCard.front}</h2>
                 {currentCard.pronunciation && (
                   <p className="text-2xl text-muted-foreground/60 mb-8">/{currentCard.pronunciation}/</p>
@@ -198,19 +204,26 @@ export default function Review() {
                   <RotateCcw className="h-4 w-4" />
                   <span className="text-sm">Click to see answer</span>
                 </div>
-              </>
-            ) : (
-              <div className="space-y-6">
-                <div className="text-5xl font-bold mb-4 px-4">{currentCard.front}</div>
-                {currentCard.pronunciation && (
-                  <p className="text-xl text-muted-foreground/60">/{currentCard.pronunciation}/</p>
-                )}
-                <div className="h-px bg-border my-8 max-w-md mx-auto"></div>
-                <div className="text-3xl font-semibold text-primary">{currentCard.back}</div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+
+            {/* Back of card */}
+            <Card
+              className="absolute inset-0 flex items-center justify-center transition-all [backface-visibility:hidden] [transform:rotateY(180deg)]"
+            >
+              <CardContent className="py-20 text-center w-full">
+                <div className="space-y-6">
+                  <div className="text-5xl font-bold mb-4 px-4">{currentCard.front}</div>
+                  {currentCard.pronunciation && (
+                    <p className="text-xl text-muted-foreground/60">/{currentCard.pronunciation}/</p>
+                  )}
+                  <div className="h-px bg-border my-8 max-w-md mx-auto"></div>
+                  <div className="text-3xl font-semibold text-primary">{currentCard.back}</div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
         {isFlipped && (
           <div className="space-y-4">
