@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Upload, Loader2 } from 'lucide-react';
@@ -16,6 +17,7 @@ interface WordFormProps {
     mongolian_translation: string;
     phonetic: string;
     audio_url: string | null;
+    difficulty?: number;
   };
   mode: 'create' | 'edit';
 }
@@ -25,6 +27,7 @@ export function WordForm({ deckId, initialData, mode }: WordFormProps) {
   const [englishWord, setEnglishWord] = useState(initialData?.english_word || '');
   const [mongolianTranslation, setMongolianTranslation] = useState(initialData?.mongolian_translation || '');
   const [phonetic, setPhonetic] = useState(initialData?.phonetic || '');
+  const [difficulty, setDifficulty] = useState<string>(initialData?.difficulty?.toString() || '1');
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState(initialData?.audio_url || '');
   const [submitting, setSubmitting] = useState(false);
@@ -89,6 +92,7 @@ export function WordForm({ deckId, initialData, mode }: WordFormProps) {
         mongolian_translation: mongolianTranslation,
         phonetic: phonetic || null,
         audio_url: finalAudioUrl,
+        difficulty: parseInt(difficulty),
         name: englishWord,
         description: mongolianTranslation,
         user_id: userData.user?.id,
@@ -168,6 +172,23 @@ export function WordForm({ deckId, initialData, mode }: WordFormProps) {
               onChange={(e) => setPhonetic(e.target.value)}
             />
             <p className="text-sm text-muted-foreground">IPA or romanization</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="difficulty">Difficulty Level</Label>
+            <Select value={difficulty} onValueChange={setDifficulty}>
+              <SelectTrigger id="difficulty">
+                <SelectValue placeholder="Select difficulty" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Level 1 - Beginner</SelectItem>
+                <SelectItem value="2">Level 2 - Elementary</SelectItem>
+                <SelectItem value="3">Level 3 - Intermediate</SelectItem>
+                <SelectItem value="4">Level 4 - Advanced</SelectItem>
+                <SelectItem value="5">Level 5 - Expert</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">For incremental learning progression</p>
           </div>
 
           <div className="space-y-2">

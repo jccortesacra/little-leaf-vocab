@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/hooks/useRole";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, BookOpen, ChevronRight } from "lucide-react";
+import { Plus, BookOpen, ChevronRight, Upload } from "lucide-react";
 
 interface Word {
   id: string;
@@ -71,13 +71,22 @@ export default function Decks() {
             <p className="text-lg text-muted-foreground">Explore and learn Mongolian words</p>
           </div>
           {isAdmin && (
-            <Button 
-              onClick={() => navigate('/word/new')}
-              className="bg-primary hover:bg-primary/90"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              New Word
-            </Button>
+            <div className="flex gap-3">
+              <Button 
+                onClick={() => navigate('/bulk-upload')}
+                variant="secondary"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Bulk Upload
+              </Button>
+              <Button 
+                onClick={() => navigate('/word/new')}
+                className="bg-primary hover:bg-primary/90"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                New Word
+              </Button>
+            </div>
           )}
         </div>
 

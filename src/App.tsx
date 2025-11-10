@@ -12,6 +12,7 @@ import Review from "./pages/Review";
 import WordDetail from "./pages/WordDetail";
 import WordFormPage from "./pages/WordFormPage";
 import UserManagement from "./pages/UserManagement";
+import BulkUpload from "./pages/BulkUpload";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/word/new" element={<WordFormPage />} />
             <Route path="/word/:deckId" element={<WordDetail />} />
             <Route path="/word/:deckId/edit" element={<WordFormPage />} />
+            <Route path="/bulk-upload" element={<BulkUpload />} />
             <Route path="/users" element={<UserManagement />} />
             <Route path="/review" element={<Review />} />
             <Route path="/review/:deckId" element={<Review />} />

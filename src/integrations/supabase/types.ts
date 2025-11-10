@@ -60,6 +60,7 @@ export type Database = {
           audio_url: string | null
           created_at: string
           description: string | null
+          difficulty: number | null
           english_word: string
           id: string
           mongolian_translation: string | null
@@ -72,6 +73,7 @@ export type Database = {
           audio_url?: string | null
           created_at?: string
           description?: string | null
+          difficulty?: number | null
           english_word: string
           id?: string
           mongolian_translation?: string | null
@@ -84,6 +86,7 @@ export type Database = {
           audio_url?: string | null
           created_at?: string
           description?: string | null
+          difficulty?: number | null
           english_word?: string
           id?: string
           mongolian_translation?: string | null
