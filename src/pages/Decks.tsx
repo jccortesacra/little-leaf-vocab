@@ -2,31 +2,25 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useRole } from "@/hooks/useRole";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, BookOpen } from "lucide-react";
+import { Plus, BookOpen, ChevronRight } from "lucide-react";
 
-interface Deck {
+interface Word {
   id: string;
-  name: string;
-  description: string | null;
-  card_count?: number;
+  english_word: string;
+  mongolian_translation: string;
+  phonetic: string | null;
 }
 
 export default function Decks() {
   const { user, loading } = useAuth();
+  const { isAdmin } = useRole();
   const navigate = useNavigate();
-  const [decks, setDecks] = useState<Deck[]>([]);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [deckName, setDeckName] = useState("");
-  const [deckDescription, setDeckDescription] = useState("");
-  const [creating, setCreating] = useState(false);
+  const [words, setWords] = useState<Word[]>([]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -36,60 +30,23 @@ export default function Decks() {
 
   useEffect(() => {
     if (user) {
-      fetchDecks();
+      fetchWords();
     }
   }, [user]);
 
-  const fetchDecks = async () => {
+  const fetchWords = async () => {
     try {
       const { data, error } = await supabase
         .from('decks')
-        .select(`
-          *,
-          cards(count)
-        `)
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false });
+        .select('id, english_word, mongolian_translation, phonetic')
+        .order('english_word', { ascending: true });
       
       if (error) throw error;
 
-      const decksWithCount = data?.map(deck => ({
-        ...deck,
-        card_count: deck.cards?.[0]?.count || 0
-      })) || [];
-
-      setDecks(decksWithCount);
+      setWords(data || []);
     } catch (error: any) {
-      console.error('Error fetching decks:', error);
-      toast.error('Failed to load decks');
-    }
-  };
-
-  const handleCreateDeck = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreating(true);
-
-    try {
-      const { error } = await supabase
-        .from('decks')
-        .insert({
-          name: deckName,
-          description: deckDescription,
-          user_id: user?.id,
-        });
-
-      if (error) throw error;
-
-      toast.success('Deck created successfully!');
-      setIsCreateOpen(false);
-      setDeckName("");
-      setDeckDescription("");
-      fetchDecks();
-    } catch (error: any) {
-      console.error('Error creating deck:', error);
-      toast.error('Failed to create deck');
-    } finally {
-      setCreating(false);
+      console.error('Error fetching words:', error);
+      toast.error('Failed to load vocabulary');
     }
   };
 
@@ -110,79 +67,60 @@ export default function Decks() {
       <main className="container mx-auto px-4 py-8 max-w-5xl">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-bold mb-2">Your Decks</h1>
-            <p className="text-lg text-muted-foreground">Organize your vocabulary into decks</p>
+            <h1 className="text-4xl font-bold mb-2">Browse Vocabulary</h1>
+            <p className="text-lg text-muted-foreground">Explore and learn Mongolian words</p>
           </div>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90">
-                <Plus className="mr-2 h-4 w-4" />
-                Create Deck
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Deck</DialogTitle>
-                <DialogDescription>
-                  Add a new deck to organize your vocabulary cards.
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleCreateDeck} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="deck-name">Deck Name</Label>
-                  <Input
-                    id="deck-name"
-                    placeholder="e.g., Basic Phrases"
-                    value={deckName}
-                    onChange={(e) => setDeckName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="deck-description">Description (Optional)</Label>
-                  <Textarea
-                    id="deck-description"
-                    placeholder="Describe what this deck is for..."
-                    value={deckDescription}
-                    onChange={(e) => setDeckDescription(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={creating}>
-                  {creating ? "Creating..." : "Create Deck"}
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+          {isAdmin && (
+            <Button 
+              onClick={() => navigate('/word/new')}
+              className="bg-primary hover:bg-primary/90"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New Word
+            </Button>
+          )}
         </div>
 
-        {decks.length === 0 ? (
+        {words.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16">
               <BookOpen className="h-16 w-16 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No decks yet</h3>
-              <p className="text-muted-foreground mb-4">Create your first deck to get started</p>
-              <Button onClick={() => setIsCreateOpen(true)} className="bg-primary hover:bg-primary/90">
-                <Plus className="mr-2 h-4 w-4" />
-                Create Deck
-              </Button>
+              <h3 className="text-xl font-semibold mb-2">No words yet</h3>
+              <p className="text-muted-foreground mb-4">
+                {isAdmin ? 'Add your first word to get started' : 'Check back soon for new vocabulary'}
+              </p>
+              {isAdmin && (
+                <Button onClick={() => navigate('/word/new')} className="bg-primary hover:bg-primary/90">
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Word
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {decks.map((deck) => (
-              <Card key={deck.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+            {words.map((word) => (
+              <Card 
+                key={word.id} 
+                className="hover:shadow-lg transition-shadow cursor-pointer group"
+                onClick={() => navigate(`/word/${word.id}`)}
+              >
                 <CardHeader>
-                  <CardTitle>{deck.name}</CardTitle>
-                  {deck.description && (
-                    <CardDescription>{deck.description}</CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <div className="text-sm text-muted-foreground">
-                    {deck.card_count} {deck.card_count === 1 ? 'card' : 'cards'}
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-2xl">{word.english_word}</CardTitle>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                   </div>
-                </CardContent>
+                  <CardDescription className="text-lg text-primary">
+                    {word.mongolian_translation}
+                  </CardDescription>
+                </CardHeader>
+                {word.phonetic && (
+                  <CardContent>
+                    <div className="text-sm text-muted-foreground font-mono">
+                      {word.phonetic}
+                    </div>
+                  </CardContent>
+                )}
               </Card>
             ))}
           </div>

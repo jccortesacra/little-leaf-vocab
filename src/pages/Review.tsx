@@ -41,12 +41,11 @@ export default function Review() {
     setLoadingCards(true);
     try {
       let query = supabase
-        .from('cards')
-        .select('*')
-        .eq('user_id', user?.id);
+        .from('decks')
+        .select('id, english_word as front, mongolian_translation as back, phonetic as pronunciation, audio_url');
 
       if (deckId) {
-        query = query.eq('deck_id', deckId);
+        query = query.eq('id', deckId);
       }
 
       const { data, error } = await query.limit(20);
@@ -54,15 +53,15 @@ export default function Review() {
       if (error) throw error;
 
       if (!data || data.length === 0) {
-        toast.info('No cards available for review');
-        navigate('/decks');
+        toast.info('No words available for review');
+        navigate('/vocabulary');
         return;
       }
 
-      setCards(data);
+      setCards(data as any);
     } catch (error: any) {
-      console.error('Error fetching cards:', error);
-      toast.error('Failed to load review cards');
+      console.error('Error fetching words:', error);
+      toast.error('Failed to load review');
       navigate('/dashboard');
     } finally {
       setLoadingCards(false);
@@ -90,7 +89,7 @@ export default function Review() {
       const { error } = await supabase
         .from('reviews')
         .insert({
-          card_id: cards[currentIndex].id,
+          deck_id: cards[currentIndex].id,
           user_id: user?.id,
           rating,
           next_review: nextReview.toISOString(),
@@ -130,9 +129,9 @@ export default function Review() {
         <main className="container mx-auto px-4 py-8 max-w-3xl">
           <Card>
             <CardContent className="py-16 text-center">
-              <h2 className="text-2xl font-bold mb-4">No cards to review</h2>
-              <p className="text-muted-foreground mb-6">Add some cards to your decks first!</p>
-              <Button onClick={() => navigate('/decks')}>Go to Decks</Button>
+              <h2 className="text-2xl font-bold mb-4">No words to review</h2>
+              <p className="text-muted-foreground mb-6">Check back later for vocabulary to practice!</p>
+              <Button onClick={() => navigate('/vocabulary')}>Browse Vocabulary</Button>
             </CardContent>
           </Card>
         </main>

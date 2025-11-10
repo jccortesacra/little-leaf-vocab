@@ -1,10 +1,13 @@
 import { Link } from "react-router-dom";
 import { User, Settings } from "lucide-react";
 import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import { useRole } from "@/hooks/useRole";
 
 export function Header() {
   const { user, signOut } = useAuth();
+  const { isAdmin } = useRole();
 
   return (
     <header className="border-b border-border bg-card">
@@ -34,10 +37,10 @@ export function Header() {
               Dashboard
             </Link>
             <Link
-              to="/decks"
+              to="/vocabulary"
               className="text-sm font-medium text-foreground hover:text-primary transition-colors"
             >
-              Decks
+              Vocabulary
             </Link>
             <Link
               to="/progress"
@@ -48,6 +51,9 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-3">
+            {isAdmin && (
+              <Badge variant="secondary">Admin</Badge>
+            )}
             <Button variant="ghost" size="icon" className="rounded-full">
               <Settings className="h-5 w-5" />
             </Button>

@@ -9,6 +9,8 @@ import Dashboard from "./pages/Dashboard";
 import Progress from "./pages/Progress";
 import Decks from "./pages/Decks";
 import Review from "./pages/Review";
+import WordDetail from "./pages/WordDetail";
+import WordFormPage from "./pages/WordFormPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +28,10 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/progress" element={<Progress />} />
             <Route path="/decks" element={<Decks />} />
+            <Route path="/vocabulary" element={<Decks />} />
+            <Route path="/word/new" element={<WordFormPage />} />
+            <Route path="/word/:deckId" element={<WordDetail />} />
+            <Route path="/word/:deckId/edit" element={<WordFormPage />} />
             <Route path="/review" element={<Review />} />
             <Route path="/review/:deckId" element={<Review />} />
             <Route path="*" element={<NotFound />} />
