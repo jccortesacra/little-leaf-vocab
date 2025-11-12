@@ -197,9 +197,6 @@ export default function Review() {
                 {currentCard.pronunciation && (
                   <p className="text-2xl text-muted-foreground/60 mb-8">/{currentCard.pronunciation}/</p>
                 )}
-                <div className="flex justify-center mb-8">
-                  <AudioPlayer audioUrl={currentCard.audio_url} word={currentCard.front} />
-                </div>
                 <div className="flex items-center justify-center gap-2 text-muted-foreground">
                   <RotateCcw className="h-4 w-4" />
                   <span className="text-sm">Click to see answer</span>
@@ -217,6 +214,9 @@ export default function Review() {
                   {currentCard.pronunciation && (
                     <p className="text-xl text-muted-foreground/60">/{currentCard.pronunciation}/</p>
                   )}
+                  <div className="flex justify-center mb-6">
+                    <AudioPlayer audioUrl={currentCard.audio_url} word={currentCard.front} />
+                  </div>
                   <div className="h-px bg-border my-8 max-w-md mx-auto"></div>
                   <div className="text-3xl font-semibold text-primary">{currentCard.back}</div>
                 </div>
