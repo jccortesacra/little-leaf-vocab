@@ -4,19 +4,20 @@ import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Upload, Loader2, Download, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Upload, Download, ArrowLeft, FileText, Package } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRole } from '@/hooks/useRole';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { parseApkg, type AnkiCard } from '@/lib/ankiParser';
+import { AudioPlayer } from '@/components/AudioPlayer';
 
 interface ParsedWord {
   english_word: string;
   mongolian_translation: string;
   phonetic?: string;
-  difficulty: number;
+  difficulty?: number;
 }
 
 export default function BulkUpload() {
@@ -25,8 +26,10 @@ export default function BulkUpload() {
   const { isAdmin, loading: roleLoading } = useRole();
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState<ParsedWord[]>([]);
+  const [preview, setPreview] = useState<ParsedWord[] | AnkiCard[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [uploadMode, setUploadMode] = useState<'csv' | 'anki'>('csv');
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
 
   if (roleLoading) {
     return (
@@ -45,14 +48,13 @@ export default function BulkUpload() {
   }
 
   const downloadTemplate = () => {
-    const csvContent = 'english_word,mongolian_translation,phonetic,difficulty\nHello,Сайн уу,/sain uu/,1\nGoodbye,Баяртай,/bayartai/,1\nThank you,Баярлалаа,/bayarlalaa/,2\n';
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
+    const csv = 'english_word,mongolian_translation,phonetic,difficulty\nhello,сайн уу,sain uu,1\ngoodbye,баяртай,bayartai,1';
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'vocabulary_template.csv';
     a.click();
-    window.URL.revokeObjectURL(url);
   };
 
   const parseCSV = (text: string): { words: ParsedWord[]; errors: string[] } => {
@@ -90,7 +92,7 @@ export default function BulkUpload() {
         english_word,
         mongolian_translation,
         phonetic: phonetic || undefined,
-        difficulty: difficultyNum,
+        difficulty: difficultyNum || 1,
       });
     }
 
@@ -101,63 +103,144 @@ export default function BulkUpload() {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    if (!selectedFile.name.endsWith('.csv')) {
-      toast.error('Please upload a CSV file');
-      return;
-    }
-
     setFile(selectedFile);
-    
-    // Parse and preview
-    const text = await selectedFile.text();
-    const { words, errors } = parseCSV(text);
-    
-    setPreview(words);
-    setErrors(errors);
+    setPreview([]);
+    setErrors([]);
 
-    if (words.length > 0) {
-      toast.success(`Parsed ${words.length} word(s) successfully`);
-    }
-    if (errors.length > 0) {
-      toast.error(`Found ${errors.length} error(s) in CSV`);
+    try {
+      if (uploadMode === 'csv') {
+        if (!selectedFile.name.endsWith('.csv')) {
+          toast.error('Please select a CSV file');
+          return;
+        }
+
+        const text = await selectedFile.text();
+        const { words, errors: parseErrors } = parseCSV(text);
+        
+        setPreview(words);
+        setErrors(parseErrors);
+        
+        if (words.length > 0) {
+          toast.success(`Parsed ${words.length} words from CSV`);
+        }
+      } else {
+        if (!selectedFile.name.endsWith('.apkg')) {
+          toast.error('Please select an .apkg file');
+          return;
+        }
+
+        toast.info('Parsing Anki deck... This may take a moment.');
+        const { cards, errors: parseErrors } = await parseApkg(selectedFile);
+        
+        setPreview(cards);
+        setErrors(parseErrors);
+        
+        const cardsWithAudio = cards.filter(c => c.audioFile).length;
+        toast.success(
+          `Parsed ${cards.length} cards from Anki deck (${cardsWithAudio} with audio)`
+        );
+      }
+    } catch (error) {
+      console.error('Error parsing file:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to parse file');
+      setFile(null);
     }
   };
 
   const handleUpload = async () => {
-    if (!file || preview.length === 0) {
-      toast.error('Please select a valid CSV file');
+    if (!file || preview.length === 0 || !user) {
+      toast.error('Please select a valid file first');
       return;
     }
 
     setUploading(true);
+    let successCount = 0;
+
     try {
-      // Prepare data for insertion
-      const wordsToInsert = preview.map(word => ({
-        ...word,
-        name: word.english_word,
-        description: word.mongolian_translation,
-        user_id: user?.id,
-        audio_url: null,
-      }));
+      if (uploadMode === 'anki') {
+        const ankiCards = preview as AnkiCard[];
+        setUploadProgress({ current: 0, total: ankiCards.length });
 
-      const { data, error } = await supabase
-        .from('decks')
-        .insert(wordsToInsert)
-        .select();
+        for (let i = 0; i < ankiCards.length; i++) {
+          const card = ankiCards[i];
+          let audioUrl: string | null = null;
 
-      if (error) throw error;
+          if (card.audioFile && card.audioFilename) {
+            const timestamp = Date.now();
+            const sanitizedFilename = card.audioFilename.replace(/[^a-zA-Z0-9.-]/g, '_');
+            const storagePath = `${timestamp}-${sanitizedFilename}`;
 
-      toast.success(`Successfully uploaded ${data.length} word(s)!`);
-      navigate('/decks');
-    } catch (error: any) {
-      console.error('Error uploading words:', error);
-      if (error.code === '23505') {
-        toast.error('Some words already exist in the database');
+            const { error: uploadError } = await supabase.storage
+              .from('word-audio')
+              .upload(storagePath, card.audioFile, {
+                contentType: card.audioFile.type || 'audio/mpeg',
+                upsert: false,
+              });
+
+            if (uploadError) {
+              console.error('Audio upload error:', uploadError);
+              setErrors(prev => [...prev, `Failed to upload audio for: ${card.english_word}`]);
+            } else {
+              audioUrl = `word-audio/${storagePath}`;
+            }
+          }
+
+          const { error: insertError } = await supabase
+            .from('decks')
+            .insert({
+              english_word: card.english_word,
+              mongolian_translation: card.mongolian_translation,
+              phonetic: card.phonetic || null,
+              audio_url: audioUrl,
+              difficulty: card.difficulty || 1,
+              name: card.english_word,
+              description: card.mongolian_translation,
+              user_id: user.id,
+            });
+
+          if (insertError) {
+            console.error('Insert error:', insertError);
+            setErrors(prev => [...prev, `Failed to insert: ${card.english_word}`]);
+          } else {
+            successCount++;
+          }
+
+          setUploadProgress({ current: i + 1, total: ankiCards.length });
+        }
       } else {
-        toast.error('Failed to upload words');
+        const csvWords = preview as ParsedWord[];
+        const wordsToInsert = csvWords.map(word => ({
+          english_word: word.english_word,
+          mongolian_translation: word.mongolian_translation,
+          phonetic: word.phonetic || null,
+          audio_url: null,
+          difficulty: word.difficulty || 1,
+          name: word.english_word,
+          description: word.mongolian_translation,
+          user_id: user.id,
+        }));
+
+        const { error } = await supabase.from('decks').insert(wordsToInsert);
+
+        if (error) {
+          throw error;
+        }
+
+        successCount = csvWords.length;
       }
+
+      if (successCount > 0) {
+        toast.success(`Successfully uploaded ${successCount} words!`);
+        navigate('/vocabulary');
+      } else {
+        toast.error('No words were uploaded. Check errors.');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload words');
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -165,117 +248,182 @@ export default function BulkUpload() {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Bulk Upload Vocabulary</h1>
-          <p className="text-lg text-muted-foreground">Upload multiple words at once using a CSV file</p>
+        <div className="flex items-center gap-4 mb-8">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/vocabulary')}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Bulk Upload</h1>
+            <p className="text-muted-foreground">Import vocabulary from CSV or Anki decks</p>
+          </div>
         </div>
 
-        <div className="space-y-6">
-          {/* Instructions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Instructions</CardTitle>
-              <CardDescription>Follow these steps to upload vocabulary in bulk</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <h3 className="font-semibold">CSV Format:</h3>
-                <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                  <li><strong>english_word</strong> (required): The English word</li>
-                  <li><strong>mongolian_translation</strong> (required): The Mongolian translation</li>
-                  <li><strong>phonetic</strong> (optional): Phonetic transcription</li>
-                  <li><strong>difficulty</strong> (optional): Level from 1 (easiest) to 5 (hardest), defaults to 1</li>
-                </ul>
-              </div>
-              <Button onClick={downloadTemplate} variant="outline" className="w-full">
-                <Download className="mr-2 h-4 w-4" />
-                Download CSV Template
-              </Button>
-            </CardContent>
-          </Card>
+        <Tabs value={uploadMode} onValueChange={(v) => setUploadMode(v as 'csv' | 'anki')} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="csv" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              CSV Import
+            </TabsTrigger>
+            <TabsTrigger value="anki" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Anki Deck
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Upload */}
+          <TabsContent value="csv" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>CSV Upload Instructions</CardTitle>
+                <CardDescription>
+                  Upload a CSV file with vocabulary words
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <ul className="list-disc list-inside space-y-2 text-sm">
+                  <li><strong>english_word</strong> - The English word (required)</li>
+                  <li><strong>mongolian_translation</strong> - The Mongolian translation (required)</li>
+                  <li><strong>phonetic</strong> - Phonetic pronunciation (optional)</li>
+                  <li><strong>difficulty</strong> - Difficulty level 1-5 (optional, defaults to 1)</li>
+                </ul>
+                <Button variant="outline" onClick={downloadTemplate} className="w-full">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download CSV Template
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="anki" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Anki Deck Import</CardTitle>
+                <CardDescription>
+                  Upload an Anki deck file (.apkg) to import vocabulary with audio
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <ul className="list-disc list-inside space-y-2 text-sm">
+                  <li>Supports .apkg files exported from Anki</li>
+                  <li>Automatically extracts audio files and uploads them</li>
+                  <li>Parses English, Mongolian, and phonetic fields</li>
+                  <li>May take a few minutes for large decks with audio</li>
+                </ul>
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm font-medium mb-2">Example Deck:</p>
+                  <a 
+                    href="https://ankiweb.net/shared/info/1157492766" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Mongolian Core Vocabulary with Audio →
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <Card>
             <CardHeader>
-              <CardTitle>Upload CSV File</CardTitle>
+              <CardTitle>Upload File</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="csv-file">Select CSV File</Label>
-                <Input
-                  id="csv-file"
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileChange}
-                  className="cursor-pointer"
-                />
-              </div>
+              <Input
+                type="file"
+                accept={uploadMode === 'csv' ? '.csv' : '.apkg'}
+                onChange={handleFileChange}
+                disabled={uploading}
+              />
 
               {errors.length > 0 && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    <div className="font-semibold mb-2">Errors found in CSV:</div>
-                    <ul className="list-disc list-inside space-y-1 text-sm">
-                      {errors.slice(0, 5).map((error, idx) => (
-                        <li key={idx}>{error}</li>
-                      ))}
-                      {errors.length > 5 && (
-                        <li>...and {errors.length - 5} more errors</li>
-                      )}
-                    </ul>
-                  </AlertDescription>
-                </Alert>
+                <div className="p-4 bg-destructive/10 rounded-lg">
+                  <p className="font-medium text-destructive mb-2">Errors ({errors.length}):</p>
+                  <ul className="text-sm space-y-1 max-h-40 overflow-y-auto">
+                    {errors.slice(0, 10).map((error, i) => (
+                      <li key={i} className="text-destructive">{error}</li>
+                    ))}
+                    {errors.length > 10 && (
+                      <li className="text-muted-foreground">... and {errors.length - 10} more</li>
+                    )}
+                  </ul>
+                </div>
               )}
 
               {preview.length > 0 && (
-                <Alert>
-                  <CheckCircle2 className="h-4 w-4" />
-                  <AlertDescription>
-                    <div className="font-semibold mb-2">Preview: {preview.length} words ready to upload</div>
-                    <div className="text-sm space-y-1">
-                      {preview.slice(0, 3).map((word, idx) => (
-                        <div key={idx} className="flex gap-2">
-                          <span className="font-mono text-xs bg-muted px-2 py-1 rounded">Lvl {word.difficulty}</span>
-                          <span>{word.english_word} → {word.mongolian_translation}</span>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium">
+                      Preview ({preview.length} {uploadMode === 'anki' ? 'cards' : 'words'})
+                      {uploadMode === 'anki' && ` - ${preview.filter((c: any) => c.audioFile).length} with audio`}
+                    </p>
+                  </div>
+                  <div className="max-h-96 overflow-y-auto space-y-2">
+                    {preview.slice(0, 10).map((item, i) => (
+                      <Card key={i} className="p-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 space-y-1">
+                            <p className="font-medium">{item.english_word}</p>
+                            <p className="text-sm text-muted-foreground">{item.mongolian_translation}</p>
+                            {item.phonetic && (
+                              <p className="text-xs text-muted-foreground italic">{item.phonetic}</p>
+                            )}
+                          </div>
+                          {uploadMode === 'anki' && (item as AnkiCard).audioFilename && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <AudioPlayer 
+                                audioUrl={(item as AnkiCard).audioFilename || null} 
+                                word={item.english_word}
+                              />
+                              <span className="text-xs">Audio</span>
+                            </div>
+                          )}
                         </div>
-                      ))}
-                      {preview.length > 3 && (
-                        <div className="text-muted-foreground">...and {preview.length - 3} more</div>
-                      )}
-                    </div>
-                  </AlertDescription>
-                </Alert>
+                      </Card>
+                    ))}
+                    {preview.length > 10 && (
+                      <p className="text-sm text-muted-foreground text-center py-2">
+                        ... and {preview.length - 10} more
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {uploadProgress && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Uploading...</span>
+                    <span>{uploadProgress.current} / {uploadProgress.total}</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div 
+                      className="bg-primary h-2 rounded-full transition-all"
+                      style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
               )}
 
               <div className="flex gap-3">
                 <Button
                   onClick={handleUpload}
-                  disabled={uploading || preview.length === 0}
+                  disabled={!file || preview.length === 0 || uploading}
                   className="flex-1"
                 >
-                  {uploading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="mr-2 h-4 w-4" />
-                      Upload {preview.length} Word(s)
-                    </>
-                  )}
+                  <Upload className="h-4 w-4 mr-2" />
+                  {uploading ? 'Uploading...' : `Upload ${preview.length} ${uploadMode === 'anki' ? 'Cards' : 'Words'}`}
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => navigate('/decks')}
+                  onClick={() => navigate('/vocabulary')}
+                  disabled={uploading}
                 >
                   Cancel
                 </Button>
               </div>
             </CardContent>
           </Card>
-        </div>
+        </Tabs>
       </main>
     </div>
   );
