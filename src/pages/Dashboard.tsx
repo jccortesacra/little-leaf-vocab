@@ -31,40 +31,60 @@ export default function Dashboard() {
 
   const fetchStats = async () => {
     try {
-      const now = new Date().toISOString();
-      
-      // Get cards that are due for review
-      const { data: dueCards, error: dueError } = await supabase
-        .from('reviews')
-        .select('card_id')
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const dailyGoal = 20;
+
+      // Get or create today's progress record
+      const { data: progressData, error: progressError } = await supabase
+        .from('daily_progress')
+        .select('cards_reviewed, daily_goal')
         .eq('user_id', user?.id)
-        .lte('next_review', now);
-      
-      if (dueError) throw dueError;
+        .eq('review_date', today)
+        .maybeSingle();
 
-      // Get all user cards
-      const { data: allCards, error: cardsError } = await supabase
-        .from('cards')
-        .select('id')
-        .eq('user_id', user?.id);
-      
-      if (cardsError) throw cardsError;
+      if (progressError) throw progressError;
 
-      // Get cards that have been reviewed
+      let cardsReviewed = 0;
+
+      if (progressData) {
+        cardsReviewed = progressData.cards_reviewed;
+      } else {
+        // Create today's progress record
+        await supabase
+          .from('daily_progress')
+          .insert({
+            user_id: user?.id,
+            review_date: today,
+            cards_reviewed: 0,
+            daily_goal: dailyGoal
+          });
+      }
+
+      // Calculate remaining cards for today
+      const dueToday = Math.max(0, dailyGoal - cardsReviewed);
+
+      // Get all decks
+      const { data: allDecks, error: decksError } = await supabase
+        .from('decks')
+        .select('id');
+      
+      if (decksError) throw decksError;
+
+      // Get cards that have been reviewed at least once
       const { data: reviewedCards, error: reviewedError } = await supabase
         .from('reviews')
-        .select('card_id')
+        .select('deck_id')
         .eq('user_id', user?.id);
       
       if (reviewedError) throw reviewedError;
 
-      const reviewedCardIds = new Set(reviewedCards?.map(r => r.card_id) || []);
-      const newCardCount = (allCards?.length || 0) - reviewedCardIds.size;
+      const reviewedDeckIds = new Set(reviewedCards?.map(r => r.deck_id) || []);
+      const newCardCount = (allDecks?.length || 0) - reviewedDeckIds.size;
 
       // Get mastered cards (those with rating 4 in latest review)
       const { data: masteredCards, error: masteredError } = await supabase
         .from('reviews')
-        .select('card_id, rating, reviewed_at')
+        .select('deck_id, rating, reviewed_at')
         .eq('user_id', user?.id)
         .eq('rating', 4)
         .order('reviewed_at', { ascending: false });
@@ -72,12 +92,12 @@ export default function Dashboard() {
       if (masteredError) throw masteredError;
 
       // Count unique mastered cards
-      const masteredCardIds = new Set(masteredCards?.map(r => r.card_id) || []);
+      const masteredDeckIds = new Set(masteredCards?.map(r => r.deck_id) || []);
 
       setStats({
-        dueToday: dueCards?.length || 0,
+        dueToday: dueToday,
         new: newCardCount,
-        mastered: masteredCardIds.size,
+        mastered: masteredDeckIds.size,
       });
     } catch (error: any) {
       console.error('Error fetching stats:', error);

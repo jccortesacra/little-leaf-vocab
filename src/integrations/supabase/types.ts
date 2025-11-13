@@ -55,6 +55,68 @@ export type Database = {
           },
         ]
       }
+      daily_progress: {
+        Row: {
+          cards_reviewed: number
+          created_at: string | null
+          daily_goal: number
+          id: string
+          review_date: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cards_reviewed?: number
+          created_at?: string | null
+          daily_goal?: number
+          id?: string
+          review_date?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cards_reviewed?: number
+          created_at?: string | null
+          daily_goal?: number
+          id?: string
+          review_date?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      daily_reviews: {
+        Row: {
+          deck_id: string
+          id: string
+          review_date: string
+          reviewed_at: string | null
+          user_id: string
+        }
+        Insert: {
+          deck_id: string
+          id?: string
+          review_date?: string
+          reviewed_at?: string | null
+          user_id: string
+        }
+        Update: {
+          deck_id?: string
+          id?: string
+          review_date?: string
+          reviewed_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_reviews_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "decks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       decks: {
         Row: {
           audio_url: string | null

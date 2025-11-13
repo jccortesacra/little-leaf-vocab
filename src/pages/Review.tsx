@@ -26,6 +26,7 @@ export default function Review() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [loadingCards, setLoadingCards] = useState(true);
+  const [dailyProgress, setDailyProgress] = useState({ completed: 0, goal: 20 });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -42,28 +43,64 @@ export default function Review() {
   const fetchCards = async () => {
     setLoadingCards(true);
     try {
-      // Fetch cards from database - Mongolian as front, English as back
-      const queryBuilder = supabase
-        .from('decks')
-        .select(`
-          id,
-          mongolian_translation,
-          english_word,
-          phonetic,
-          audio_url
-        `);
+      const today = new Date().toISOString().split('T')[0];
 
-      if (deckId) {
-        queryBuilder.eq('id', deckId);
+      // Get cards already reviewed today
+      const { data: reviewedToday, error: reviewedTodayError } = await supabase
+        .from('daily_reviews')
+        .select('deck_id')
+        .eq('user_id', user?.id)
+        .eq('review_date', today);
+
+      if (reviewedTodayError) throw reviewedTodayError;
+
+      const reviewedIds = reviewedToday?.map(r => r.deck_id) || [];
+
+      // Get today's progress
+      const { data: progress, error: progressError } = await supabase
+        .from('daily_progress')
+        .select('cards_reviewed, daily_goal')
+        .eq('user_id', user?.id)
+        .eq('review_date', today)
+        .maybeSingle();
+
+      if (progressError) throw progressError;
+
+      const cardsReviewed = progress?.cards_reviewed || 0;
+      const dailyGoal = progress?.daily_goal || 20;
+      const remaining = dailyGoal - cardsReviewed;
+
+      setDailyProgress({ completed: cardsReviewed, goal: dailyGoal });
+
+      if (remaining <= 0) {
+        toast.success('Daily goal complete! Come back tomorrow.');
+        navigate('/dashboard');
+        return;
       }
 
-      const { data, error } = await queryBuilder.limit(20);
-      
+      // Fetch cards not reviewed today, ordered by difficulty
+      let queryBuilder = supabase
+        .from('decks')
+        .select('id, mongolian_translation, english_word, phonetic, audio_url, difficulty')
+        .order('difficulty', { ascending: true })
+        .limit(remaining);
+
+      // Exclude cards reviewed today
+      if (reviewedIds.length > 0) {
+        queryBuilder = queryBuilder.not('id', 'in', `(${reviewedIds.join(',')})`);
+      }
+
+      if (deckId) {
+        queryBuilder = queryBuilder.eq('id', deckId);
+      }
+
+      const { data, error } = await queryBuilder;
+
       if (error) throw error;
 
       if (!data || data.length === 0) {
-        toast.info('No words available for review');
-        navigate('/vocabulary');
+        toast.info('No more words available for review today');
+        navigate('/dashboard');
         return;
       }
 
@@ -90,11 +127,11 @@ export default function Review() {
     if (!cards[currentIndex]) return;
 
     try {
-      // Calculate next review time based on rating
+      const today = new Date().toISOString().split('T')[0];
       const now = new Date();
       const nextReview = new Date(now);
       
-      // Simple SRS logic for Sprint 2
+      // Simple SRS logic
       const intervals = {
         1: 10, // Again: 10 minutes
         2: 60, // Hard: 1 hour
@@ -104,7 +141,8 @@ export default function Review() {
       
       nextReview.setMinutes(nextReview.getMinutes() + intervals[rating as keyof typeof intervals]);
 
-      const { error } = await supabase
+      // 1. Save review to reviews table (for SRS)
+      const { error: reviewError } = await supabase
         .from('reviews')
         .insert({
           deck_id: cards[currentIndex].id,
@@ -113,14 +151,59 @@ export default function Review() {
           next_review: nextReview.toISOString(),
         });
 
-      if (error) throw error;
+      if (reviewError) throw reviewError;
 
-      // Move to next card
+      // 2. Mark card as reviewed today (prevent duplicates)
+      const { error: dailyReviewError } = await supabase
+        .from('daily_reviews')
+        .insert({
+          user_id: user?.id,
+          deck_id: cards[currentIndex].id,
+          review_date: today,
+        });
+
+      if (dailyReviewError && dailyReviewError.code !== '23505') {
+        // Ignore duplicate key errors (card already marked as reviewed)
+        throw dailyReviewError;
+      }
+
+      // 3. Update daily progress counter
+      const { data: currentProgress } = await supabase
+        .from('daily_progress')
+        .select('cards_reviewed')
+        .eq('user_id', user?.id)
+        .eq('review_date', today)
+        .maybeSingle();
+
+      const newCount = (currentProgress?.cards_reviewed || 0) + 1;
+
+      const { error: progressError } = await supabase
+        .from('daily_progress')
+        .upsert({
+          user_id: user?.id,
+          review_date: today,
+          cards_reviewed: newCount,
+          daily_goal: 20,
+        }, {
+          onConflict: 'user_id,review_date'
+        });
+
+      if (progressError) throw progressError;
+
+      // Update local progress state
+      setDailyProgress(prev => ({ ...prev, completed: newCount }));
+
+      // Move to next card or complete session
       if (currentIndex < cards.length - 1) {
         setCurrentIndex(currentIndex + 1);
         setIsFlipped(false);
       } else {
-        toast.success('Review session complete!');
+        const remaining = 20 - newCount;
+        if (remaining > 0) {
+          toast.success(`${remaining} more cards to reach your daily goal!`);
+        } else {
+          toast.success('Daily goal complete! 🎉');
+        }
         navigate('/dashboard');
       }
     } catch (error: any) {
@@ -174,6 +257,9 @@ export default function Review() {
         </Button>
 
         <div className="mb-8">
+          <p className="text-center text-sm text-muted-foreground mb-2">
+            Daily Progress: {dailyProgress.completed}/{dailyProgress.goal} cards reviewed
+          </p>
           <p className="text-center text-sm text-muted-foreground mb-3">
             {currentIndex + 1} of {cards.length} cards
           </p>
