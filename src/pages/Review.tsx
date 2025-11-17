@@ -354,9 +354,6 @@ export default function Review() {
                     <div className={`font-semibold text-lg ${btn.color}`}>
                       {btn.label}
                     </div>
-                    <div className="text-xs text-muted-foreground mt-2">
-                      {btn.points > 0 ? `+${btn.points}` : btn.points} pts
-                    </div>
                   </Button>
                 ))}
               </div>
