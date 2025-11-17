@@ -11,6 +11,10 @@ import { ArrowLeft, ArrowRight, RotateCcw } from "lucide-react";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { getOrAssignABVariant, ABVariant } from "@/lib/abTest";
 import { MobileNav } from "@/components/MobileNav";
+import { getXPForRating } from "@/lib/xpSystem";
+import { updateStreak } from "@/lib/streakSystem";
+import { checkAndAwardBadges, Badge } from "@/lib/badgeChecker";
+import { ReviewSummary } from "@/components/gamification/ReviewSummary";
 
 interface FlashCard {
   id: string;
@@ -30,6 +34,16 @@ export default function Review() {
   const [loadingCards, setLoadingCards] = useState(true);
   const [dailyProgress, setDailyProgress] = useState({ completed: 0, goal: 20 });
   const [abVariant, setAbVariant] = useState<ABVariant>('emoji');
+  const [sessionXP, setSessionXP] = useState(0);
+  const [sessionCards, setSessionCards] = useState(0);
+  const [showSummary, setShowSummary] = useState(false);
+  const [summaryData, setSummaryData] = useState<{
+    xpEarned: number;
+    cardsReviewed: number;
+    newStreak: number;
+    streakIncremented: boolean;
+    newBadges: Badge[];
+  } | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -134,6 +148,9 @@ export default function Review() {
       const today = new Date().toISOString().split('T')[0];
       const deckId = cards[currentIndex].id;
       
+      // Calculate XP for this rating
+      const xpEarned = getXPForRating(rating);
+      
       // 1. Fetch or create current SRS state for this deck
       const { data: currentState } = await supabase
         .from('user_deck_states')
@@ -178,7 +195,7 @@ export default function Review() {
           deck_id: deckId,
           user_id: user?.id,
           rating,
-          points_earned: points,
+          points_earned: xpEarned,
           next_review: srsResult.nextReview.toISOString(),
         });
 
@@ -197,7 +214,7 @@ export default function Review() {
         throw dailyReviewError;
       }
 
-      // 5. Update daily progress with points
+      // 5. Update daily progress with XP
       const { data: currentProgress } = await supabase
         .from('daily_progress')
         .select('cards_reviewed, total_points')
@@ -206,7 +223,7 @@ export default function Review() {
         .maybeSingle();
 
       const newCount = (currentProgress?.cards_reviewed || 0) + 1;
-      const newPoints = (currentProgress?.total_points || 0) + points;
+      const newXP = (currentProgress?.total_points || 0) + xpEarned;
 
       const { error: progressError } = await supabase
         .from('daily_progress')
@@ -214,7 +231,7 @@ export default function Review() {
           user_id: user?.id,
           review_date: today,
           cards_reviewed: newCount,
-          total_points: newPoints,
+          total_points: newXP,
           daily_goal: 20,
         }, {
           onConflict: 'user_id,review_date'
@@ -222,12 +239,28 @@ export default function Review() {
 
       if (progressError) throw progressError;
 
-      // Update local state
+      // 6. Update user XP in preferences
+      const { data: prefs } = await supabase
+        .from('user_preferences')
+        .select('xp')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+
+      const totalXP = (prefs?.xp || 0) + xpEarned;
+      
+      await supabase
+        .from('user_preferences')
+        .update({ xp: totalXP })
+        .eq('user_id', user?.id);
+
+      // Update session tracking
+      setSessionXP(prev => prev + xpEarned);
+      setSessionCards(prev => prev + 1);
       setDailyProgress(prev => ({ ...prev, completed: newCount }));
 
       // Show feedback based on rating
       if (rating === 3) {
-        toast.success("+1 XP. Great job!");
+        toast.success(`+${xpEarned} XP. Great job!`);
       } else if (rating === 2) {
         toast("Nice! We'll show this again soon.", {
           icon: "⚡",
@@ -238,18 +271,23 @@ export default function Review() {
         });
       }
 
-      // Move to next card
+      // Move to next card or end session
       if (currentIndex < cards.length - 1) {
         setCurrentIndex(currentIndex + 1);
         setIsFlipped(false);
       } else {
-        const remaining = 20 - newCount;
-        if (remaining > 0) {
-          toast.success(`Session complete! ${remaining} more cards to reach your daily goal.`);
-        } else {
-          toast.success(`Daily goal complete! 🎉 Total points today: ${newPoints}`);
-        }
-        navigate('/dashboard');
+        // End of session - update streak and check badges
+        const streakResult = await updateStreak(user?.id || '');
+        const newBadges = await checkAndAwardBadges(user?.id || '');
+        
+        setSummaryData({
+          xpEarned: sessionXP + xpEarned,
+          cardsReviewed: sessionCards + 1,
+          newStreak: streakResult.newStreak,
+          streakIncremented: streakResult.streakIncremented,
+          newBadges,
+        });
+        setShowSummary(true);
       }
     } catch (error: any) {
       console.error('Error saving review:', error);
@@ -397,6 +435,25 @@ export default function Review() {
         })()}
       </main>
       <MobileNav />
+      
+      {summaryData && (
+        <ReviewSummary
+          open={showSummary}
+          onClose={() => {
+            setShowSummary(false);
+            navigate('/dashboard');
+          }}
+          xpEarned={summaryData.xpEarned}
+          cardsReviewed={summaryData.cardsReviewed}
+          newStreak={summaryData.newStreak}
+          streakIncremented={summaryData.streakIncremented}
+          newBadges={summaryData.newBadges}
+          onKeepGoing={() => {
+            setShowSummary(false);
+            navigate('/review');
+          }}
+        />
+      )}
     </div>
   );
 }
