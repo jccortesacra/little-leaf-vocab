@@ -110,8 +110,8 @@ export default function Review() {
       // Transform data to match FlashCard interface
       const transformedCards = data.map(card => ({
         id: card.id,
-        front: card.mongolian_translation,
-        back: card.english_word,
+        front: card.english_word,
+        back: card.mongolian_translation,
         pronunciation: card.phonetic,
         audio_url: card.audio_url
       }));
@@ -334,15 +334,15 @@ export default function Review() {
             >
               <CardContent className="py-20 text-center w-full">
                 <div className="space-y-6">
-                  <div className="text-5xl font-bold mb-4 px-4">{currentCard.front}</div>
+                  <div className="text-3xl font-semibold mb-4 px-4">{currentCard.front}</div>
+                  <div className="h-px bg-border my-8 max-w-md mx-auto"></div>
+                  <div className="text-5xl font-bold text-primary mb-4">{currentCard.back}</div>
                   {currentCard.pronunciation && (
                     <p className="text-xl text-muted-foreground/60">/{currentCard.pronunciation}/</p>
                   )}
-                  <div className="flex justify-center mb-6">
-                    <AudioPlayer audioUrl={currentCard.audio_url} word={currentCard.front} />
+                  <div className="flex justify-center">
+                    <AudioPlayer audioUrl={currentCard.audio_url} word={currentCard.back} />
                   </div>
-                  <div className="h-px bg-border my-8 max-w-md mx-auto"></div>
-                  <div className="text-3xl font-semibold text-primary">{currentCard.back}</div>
                 </div>
               </CardContent>
             </Card>
