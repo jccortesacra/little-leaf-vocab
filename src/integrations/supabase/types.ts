@@ -210,6 +210,56 @@ export type Database = {
           },
         ]
       }
+      user_deck_states: {
+        Row: {
+          created_at: string
+          deck_id: string
+          ease_factor: number
+          id: string
+          interval: number
+          lapses: number
+          last_reviewed: string | null
+          next_review: string
+          repetitions: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deck_id: string
+          ease_factor?: number
+          id?: string
+          interval?: number
+          lapses?: number
+          last_reviewed?: string | null
+          next_review?: string
+          repetitions?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deck_id?: string
+          ease_factor?: number
+          id?: string
+          interval?: number
+          lapses?: number
+          last_reviewed?: string | null
+          next_review?: string
+          repetitions?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_deck_states_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "decks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_preferences: {
         Row: {
           ab_test_variant: string
