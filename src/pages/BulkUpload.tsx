@@ -12,6 +12,14 @@ import { useRole } from '@/hooks/useRole';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { parseApkg, type AnkiCard } from '@/lib/ankiParser';
 import { AudioPlayer } from '@/components/AudioPlayer';
+import { z } from 'zod';
+
+const wordSchema = z.object({
+  english_word: z.string().trim().min(1).max(100),
+  mongolian_translation: z.string().trim().min(1).max(200),
+  phonetic: z.string().trim().max(100).optional(),
+  difficulty: z.number().int().min(1).max(5)
+});
 
 interface ParsedWord {
   english_word: string;
@@ -88,11 +96,24 @@ export default function BulkUpload() {
         continue;
       }
 
-      words.push({
+      // Validate field lengths
+      const validationResult = wordSchema.safeParse({
         english_word,
         mongolian_translation,
         phonetic: phonetic || undefined,
-        difficulty: difficultyNum || 1,
+        difficulty: difficultyNum
+      });
+
+      if (!validationResult.success) {
+        errors.push(`Line ${i + 1}: ${validationResult.error.issues[0].message}`);
+        continue;
+      }
+
+      words.push({
+        english_word: validationResult.data.english_word,
+        mongolian_translation: validationResult.data.mongolian_translation,
+        phonetic: validationResult.data.phonetic,
+        difficulty: validationResult.data.difficulty
       });
     }
 

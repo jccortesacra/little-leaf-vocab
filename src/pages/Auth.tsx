@@ -8,6 +8,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
+import { z } from "zod";
+
+const authSchema = z.object({
+  email: z.string().trim().email("Invalid email address").max(255, "Email must be less than 255 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters").max(128, "Password must be less than 128 characters")
+});
 
 export default function Auth() {
   const [email, setEmail] = useState("");
@@ -19,8 +25,16 @@ export default function Auth() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate input
+    const result = authSchema.safeParse({ email, password });
+    if (!result.success) {
+      toast.error(result.error.issues[0].message);
+      return;
+    }
+    
     setLoading(true);
-    const { error } = await signIn(email, password);
+    const { error } = await signIn(result.data.email, result.data.password);
     setLoading(false);
     
     if (error) {
@@ -33,8 +47,16 @@ export default function Auth() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate input
+    const result = authSchema.safeParse({ email, password });
+    if (!result.success) {
+      toast.error(result.error.issues[0].message);
+      return;
+    }
+    
     setLoading(true);
-    const { error } = await signUp(email, password);
+    const { error } = await signUp(result.data.email, result.data.password);
     setLoading(false);
     
     if (error) {

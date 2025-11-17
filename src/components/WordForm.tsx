@@ -9,6 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Upload, Loader2 } from 'lucide-react';
+import { z } from 'zod';
+
+const wordSchema = z.object({
+  english_word: z.string().trim().min(1, "English word is required").max(100, "English word must be less than 100 characters"),
+  mongolian_translation: z.string().trim().min(1, "Mongolian translation is required").max(200, "Translation must be less than 200 characters"),
+  phonetic: z.string().trim().max(100, "Phonetic must be less than 100 characters").optional(),
+  difficulty: z.number().int().min(1).max(5, "Difficulty must be between 1 and 5")
+});
 
 interface WordFormProps {
   deckId?: string;
@@ -79,6 +87,20 @@ export function WordForm({ deckId, initialData, mode }: WordFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate input
+    const validationResult = wordSchema.safeParse({
+      english_word: englishWord,
+      mongolian_translation: mongolianTranslation,
+      phonetic: phonetic || undefined,
+      difficulty: parseInt(difficulty)
+    });
+
+    if (!validationResult.success) {
+      toast.error(validationResult.error.issues[0].message);
+      return;
+    }
+    
     setSubmitting(true);
 
     try {
@@ -88,13 +110,13 @@ export function WordForm({ deckId, initialData, mode }: WordFormProps) {
       const { data: userData } = await supabase.auth.getUser();
       
       const wordData = {
-        english_word: englishWord,
-        mongolian_translation: mongolianTranslation,
-        phonetic: phonetic || null,
+        english_word: validationResult.data.english_word,
+        mongolian_translation: validationResult.data.mongolian_translation,
+        phonetic: validationResult.data.phonetic || null,
         audio_url: finalAudioUrl,
-        difficulty: parseInt(difficulty),
-        name: englishWord,
-        description: mongolianTranslation,
+        difficulty: validationResult.data.difficulty,
+        name: validationResult.data.english_word,
+        description: validationResult.data.mongolian_translation,
         user_id: userData.user?.id,
       };
 
