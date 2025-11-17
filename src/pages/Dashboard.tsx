@@ -10,6 +10,9 @@ import { toast } from "sonner";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { MobileNav } from "@/components/MobileNav";
 import { DashboardSkeleton } from "@/components/LoadingSkeleton";
+import { DailyGoalRing } from "@/components/gamification/DailyGoalRing";
+import { StreakDisplay } from "@/components/gamification/StreakDisplay";
+import { XPBadge } from "@/components/gamification/XPBadge";
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
@@ -19,6 +22,13 @@ export default function Dashboard() {
     new: 0,
     mastered: 0,
     totalPoints: 0,
+    cardsReviewed: 0,
+    dailyGoal: 20,
+  });
+  const [gamificationStats, setGamificationStats] = useState({
+    xp: 0,
+    streak: 0,
+    streakFreezes: 0,
   });
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
@@ -32,6 +42,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (user) {
       fetchStats();
+      fetchGamificationStats();
       checkOnboardingStatus();
     }
   }, [user]);
@@ -134,10 +145,36 @@ export default function Dashboard() {
         new: newCount || 0,
         mastered: masteredCount,
         totalPoints,
+        cardsReviewed,
+        dailyGoal,
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
       toast.error('Failed to load statistics');
+    }
+  };
+
+  const fetchGamificationStats = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('xp, streak, streak_freezes')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      setGamificationStats({
+        xp: data?.xp || 0,
+        streak: data?.streak || 0,
+        streakFreezes: data?.streak_freezes || 0,
+      });
+    } catch (error: any) {
+      console.error('Error fetching gamification stats:', error);
     }
   };
 
@@ -162,10 +199,18 @@ export default function Dashboard() {
       <Header />
       <main className="container mx-auto px-4 py-8 max-w-5xl pb-24 md:pb-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Welcome back!</h1>
-          <p className="text-lg text-success">You have words to review. Let's get started.</p>
+          <h1 className="text-4xl font-bold mb-2">Sain uu, {user?.email?.split('@')[0]}!</h1>
+          <p className="text-lg text-success">Ready to study?</p>
         </div>
 
+        {/* Gamification Stats Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <StreakDisplay streak={gamificationStats.streak} streakFreezes={gamificationStats.streakFreezes} />
+          <XPBadge xp={gamificationStats.xp} />
+          <DailyGoalRing completed={stats.cardsReviewed} goal={stats.dailyGoal} />
+        </div>
+
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatCard
             icon={Calendar}
@@ -193,7 +238,7 @@ export default function Dashboard() {
             className="w-full max-w-md h-14 text-lg bg-success hover:bg-success/90"
             onClick={handleStartReview}
           >
-            Start Review
+            Start Review →
             <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
 

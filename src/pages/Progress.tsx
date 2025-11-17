@@ -10,6 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { MobileNav } from "@/components/MobileNav";
 import { DashboardSkeleton } from "@/components/LoadingSkeleton";
+import { BadgeGrid } from "@/components/gamification/BadgeGrid";
+import { getUserBadges, Badge } from "@/lib/badgeChecker";
 
 export default function ProgressPage() {
   const { user, loading } = useAuth();
@@ -20,6 +22,7 @@ export default function ProgressPage() {
     nextReview: "No reviews scheduled",
     overallMastery: 0,
   });
+  const [badges, setBadges] = useState<Badge[]>([]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -30,6 +33,7 @@ export default function ProgressPage() {
   useEffect(() => {
     if (user) {
       fetchStats();
+      fetchBadges();
     }
   }, [user]);
 
@@ -106,6 +110,17 @@ export default function ProgressPage() {
     }
   };
 
+  const fetchBadges = async () => {
+    if (!user) return;
+    
+    try {
+      const userBadges = await getUserBadges(user.id);
+      setBadges(userBadges);
+    } catch (error) {
+      console.error('Error fetching badges:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -157,6 +172,12 @@ export default function ProgressPage() {
             description="Keep up the streak!"
             iconColor="text-accent"
           />
+        </div>
+
+        {/* Achievements Section */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold mb-4">Achievements</h2>
+          <BadgeGrid badges={badges} />
         </div>
 
         <div className="flex justify-center">
