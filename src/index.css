@@ -29,13 +29,13 @@ All colors MUST be HSL.
     --accent: 43 74% 49%;
     --accent-foreground: 213 53% 25%;
 
-    --success: 213 53% 35%;
+    --success: 152 69% 36%;
     --success-foreground: 0 0% 98%;
 
-    --warning: 40 96% 53%;
+    --warning: 43 96% 44%;
     --warning-foreground: 0 0% 98%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 63% 55%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 213 15% 88%;
@@ -67,13 +67,13 @@ All colors MUST be HSL.
     --accent: 43 74% 55%;
     --accent-foreground: 213 53% 25%;
 
-    --success: 213 53% 45%;
+    --success: 152 69% 45%;
     --success-foreground: 0 0% 98%;
 
-    --warning: 40 96% 53%;
+    --warning: 43 96% 50%;
     --warning-foreground: 0 0% 98%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 63% 35%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 213 25% 20%;

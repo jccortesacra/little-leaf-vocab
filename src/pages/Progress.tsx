@@ -8,6 +8,8 @@ import { GraduationCap, BookOpen, Clock, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { MobileNav } from "@/components/MobileNav";
+import { DashboardSkeleton } from "@/components/LoadingSkeleton";
 
 export default function ProgressPage() {
   const { user, loading } = useAuth();
@@ -106,11 +108,12 @@ export default function ProgressPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading...</p>
-        </div>
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8 max-w-5xl pb-24 md:pb-8">
+          <DashboardSkeleton />
+        </main>
+        <MobileNav />
       </div>
     );
   }
@@ -118,7 +121,7 @@ export default function ProgressPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container mx-auto px-4 py-8 max-w-5xl">
+      <main className="container mx-auto px-4 py-8 max-w-5xl pb-24 md:pb-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">Hello, {user?.email?.split('@')[0]}!</h1>
           <p className="text-lg text-primary">Here is your progress at a glance.</p>
@@ -167,6 +170,7 @@ export default function ProgressPage() {
           </Button>
         </div>
       </main>
+      <MobileNav />
     </div>
   );
 }

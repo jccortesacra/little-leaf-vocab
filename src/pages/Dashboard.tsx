@@ -7,6 +7,9 @@ import { Calendar, Lightbulb, GraduationCap, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
+import { MobileNav } from "@/components/MobileNav";
+import { DashboardSkeleton } from "@/components/LoadingSkeleton";
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
@@ -17,6 +20,8 @@ export default function Dashboard() {
     mastered: 0,
     totalPoints: 0,
   });
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -27,8 +32,32 @@ export default function Dashboard() {
   useEffect(() => {
     if (user) {
       fetchStats();
+      checkOnboardingStatus();
     }
   }, [user]);
+
+  const checkOnboardingStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("user_preferences")
+        .select("onboarding_completed")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error && error.code !== "PGRST116") {
+        console.error("Error checking onboarding:", error);
+      }
+
+      // Show onboarding if no preferences exist or onboarding not completed
+      setShowOnboarding(!data || !data.onboarding_completed);
+    } catch (error) {
+      console.error("Error checking onboarding:", error);
+    } finally {
+      setCheckingOnboarding(false);
+    }
+  };
 
   const fetchStats = async () => {
     if (!user) return;
@@ -116,13 +145,14 @@ export default function Dashboard() {
     navigate('/review');
   };
 
-  if (loading) {
+  if (loading || checkingOnboarding) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading...</p>
-        </div>
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8 max-w-5xl pb-24 md:pb-8">
+          <DashboardSkeleton />
+        </main>
+        <MobileNav />
       </div>
     );
   }
@@ -130,7 +160,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container mx-auto px-4 py-8 max-w-5xl">
+      <main className="container mx-auto px-4 py-8 max-w-5xl pb-24 md:pb-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">Welcome back!</h1>
           <p className="text-lg text-success">You have words to review. Let's get started.</p>
@@ -176,6 +206,16 @@ export default function Dashboard() {
           </Button>
         </div>
       </main>
+
+      <MobileNav />
+
+      {showOnboarding && user && (
+        <OnboardingWizard
+          open={showOnboarding}
+          onComplete={() => setShowOnboarding(false)}
+          userId={user.id}
+        />
+      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, RotateCcw } from "lucide-react";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { getOrAssignABVariant, ABVariant } from "@/lib/abTest";
+import { MobileNav } from "@/components/MobileNav";
 
 interface FlashCard {
   id: string;
@@ -224,11 +225,17 @@ export default function Review() {
       // Update local state
       setDailyProgress(prev => ({ ...prev, completed: newCount }));
 
-      // Show points feedback
-      if (points > 0) {
-        toast.success(`+${points} point! Keep it up! 🎉`);
-      } else if (points < 0) {
-        toast.error(`${points} point. You'll get it next time!`);
+      // Show feedback based on rating
+      if (rating === 3) {
+        toast.success("+1 XP. Great job!");
+      } else if (rating === 2) {
+        toast("Nice! We'll show this again soon.", {
+          icon: "⚡",
+        });
+      } else {
+        toast("No worries—scheduled sooner.", {
+          icon: "📅",
+        });
       }
 
       // Move to next card
@@ -274,6 +281,7 @@ export default function Review() {
             </CardContent>
           </Card>
         </main>
+        <MobileNav />
       </div>
     );
   }
@@ -284,7 +292,7 @@ export default function Review() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container mx-auto px-4 py-8 max-w-3xl">
+      <main className="container mx-auto px-4 py-8 max-w-3xl pb-24 md:pb-8">
         <Button
           variant="ghost"
           onClick={() => navigate('/dashboard')}
@@ -388,6 +396,7 @@ export default function Review() {
           );
         })()}
       </main>
+      <MobileNav />
     </div>
   );
 }
