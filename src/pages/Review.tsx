@@ -131,37 +131,64 @@ export default function Review() {
 
     try {
       const today = new Date().toISOString().split('T')[0];
-      const now = new Date();
-      const nextReview = new Date(now);
+      const deckId = cards[currentIndex].id;
       
-      // Map 3-button system to SRS intervals
-      const intervals = {
-        1: 10,      // Forgot: review in 10 minutes
-        2: 1440,    // Almost: review tomorrow (1 day)
-        3: 4320,    // Got it: review in 3 days
-      };
-      
-      nextReview.setMinutes(nextReview.getMinutes() + intervals[rating as keyof typeof intervals]);
+      // 1. Fetch or create current SRS state for this deck
+      const { data: currentState } = await supabase
+        .from('user_deck_states')
+        .select('interval, ease_factor, repetitions, lapses')
+        .eq('user_id', user?.id)
+        .eq('deck_id', deckId)
+        .maybeSingle();
 
-      // 1. Save review with points
+      // Import SRS algorithm
+      const { calculateNextReview } = await import('@/lib/srsAlgorithm');
+      
+      // Calculate next review using SRS algorithm
+      const srsResult = calculateNextReview(rating as 1 | 2 | 3, {
+        interval: currentState?.interval || 0,
+        easeFactor: currentState?.ease_factor || 2.5,
+        repetitions: currentState?.repetitions || 0,
+        lapses: currentState?.lapses || 0,
+      });
+
+      // 2. Update or create SRS state
+      const { error: stateError } = await supabase
+        .from('user_deck_states')
+        .upsert({
+          user_id: user?.id,
+          deck_id: deckId,
+          interval: srsResult.interval,
+          ease_factor: srsResult.easeFactor,
+          repetitions: srsResult.repetitions,
+          lapses: srsResult.lapses,
+          last_reviewed: new Date().toISOString(),
+          next_review: srsResult.nextReview.toISOString(),
+        }, {
+          onConflict: 'user_id,deck_id'
+        });
+
+      if (stateError) throw stateError;
+
+      // 3. Save review log with points
       const { error: reviewError } = await supabase
         .from('reviews')
         .insert({
-          deck_id: cards[currentIndex].id,
+          deck_id: deckId,
           user_id: user?.id,
           rating,
           points_earned: points,
-          next_review: nextReview.toISOString(),
+          next_review: srsResult.nextReview.toISOString(),
         });
 
       if (reviewError) throw reviewError;
 
-      // 2. Mark card as reviewed today
+      // 4. Mark card as reviewed today
       const { error: dailyReviewError } = await supabase
         .from('daily_reviews')
         .insert({
           user_id: user?.id,
-          deck_id: cards[currentIndex].id,
+          deck_id: deckId,
           review_date: today,
         });
 
@@ -169,7 +196,7 @@ export default function Review() {
         throw dailyReviewError;
       }
 
-      // 3. Update daily progress with points
+      // 5. Update daily progress with points
       const { data: currentProgress } = await supabase
         .from('daily_progress')
         .select('cards_reviewed, total_points')
