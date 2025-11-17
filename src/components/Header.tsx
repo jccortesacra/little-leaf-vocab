@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/hooks/useRole";
+import owlLogo from "@/assets/owl-logo.png";
 export function Header() {
   const {
     user,
@@ -16,11 +17,12 @@ export function Header() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <Link to="/dashboard" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-6 w-6 text-primary-foreground">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5M2 12l10 5 10-5" />
-              </svg>
+            <div className="flex h-10 w-10 items-center justify-center">
+              <img 
+                src={owlLogo} 
+                alt="Little-Leaf Owl Logo" 
+                className="h-full w-full object-contain"
+              />
             </div>
             <span className="text-xl font-bold text-foreground">Little-Leaf</span>
           </Link>
