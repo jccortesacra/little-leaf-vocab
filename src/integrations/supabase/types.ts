@@ -128,9 +128,12 @@ export type Database = {
           difficulty: number | null
           english_word: string
           id: string
+          is_beginner: boolean | null
           mongolian_translation: string | null
           name: string
+          part_of_speech: string | null
           phonetic: string | null
+          topic: string | null
           updated_at: string
           user_id: string
         }
@@ -141,9 +144,12 @@ export type Database = {
           difficulty?: number | null
           english_word: string
           id?: string
+          is_beginner?: boolean | null
           mongolian_translation?: string | null
           name: string
+          part_of_speech?: string | null
           phonetic?: string | null
+          topic?: string | null
           updated_at?: string
           user_id: string
         }
@@ -154,9 +160,12 @@ export type Database = {
           difficulty?: number | null
           english_word?: string
           id?: string
+          is_beginner?: boolean | null
           mongolian_translation?: string | null
           name?: string
+          part_of_speech?: string | null
           phonetic?: string | null
+          topic?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -215,6 +224,7 @@ export type Database = {
           created_at: string
           deck_id: string
           ease_factor: number
+          hard_flag: boolean | null
           id: string
           interval: number
           lapses: number
@@ -228,6 +238,7 @@ export type Database = {
           created_at?: string
           deck_id: string
           ease_factor?: number
+          hard_flag?: boolean | null
           id?: string
           interval?: number
           lapses?: number
@@ -241,6 +252,7 @@ export type Database = {
           created_at?: string
           deck_id?: string
           ease_factor?: number
+          hard_flag?: boolean | null
           id?: string
           interval?: number
           lapses?: number
@@ -264,20 +276,47 @@ export type Database = {
         Row: {
           ab_test_variant: string
           created_at: string | null
+          daily_commitment: number | null
+          goal: string | null
           id: string
+          last_review_date: string | null
+          level: string | null
+          onboarding_completed: boolean | null
+          reminder_time: string | null
+          streak: number | null
+          streak_freezes: number | null
           user_id: string
+          xp: number | null
         }
         Insert: {
           ab_test_variant: string
           created_at?: string | null
+          daily_commitment?: number | null
+          goal?: string | null
           id?: string
+          last_review_date?: string | null
+          level?: string | null
+          onboarding_completed?: boolean | null
+          reminder_time?: string | null
+          streak?: number | null
+          streak_freezes?: number | null
           user_id: string
+          xp?: number | null
         }
         Update: {
           ab_test_variant?: string
           created_at?: string | null
+          daily_commitment?: number | null
+          goal?: string | null
           id?: string
+          last_review_date?: string | null
+          level?: string | null
+          onboarding_completed?: boolean | null
+          reminder_time?: string | null
+          streak?: number | null
+          streak_freezes?: number | null
           user_id?: string
+          xp?: number | null
         }
         Relationships: []
       }

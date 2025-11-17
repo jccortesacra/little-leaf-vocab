@@ -8,6 +8,8 @@ import { useRole } from "@/hooks/useRole";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, BookOpen, ChevronRight, Upload } from "lucide-react";
+import { VocabularyGridSkeleton } from "@/components/LoadingSkeleton";
+import { MobileNav } from "@/components/MobileNav";
 
 interface Word {
   id: string;
@@ -21,6 +23,7 @@ export default function Decks() {
   const { isAdmin } = useRole();
   const navigate = useNavigate();
   const [words, setWords] = useState<Word[]>([]);
+  const [isLoadingWords, setIsLoadingWords] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -35,6 +38,7 @@ export default function Decks() {
   }, [user]);
 
   const fetchWords = async () => {
+    setIsLoadingWords(true);
     try {
       const { data, error } = await supabase
         .from('decks')
@@ -47,6 +51,8 @@ export default function Decks() {
     } catch (error: any) {
       console.error('Error fetching words:', error);
       toast.error('Failed to load vocabulary');
+    } finally {
+      setIsLoadingWords(false);
     }
   };
 
@@ -64,7 +70,7 @@ export default function Decks() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container mx-auto px-4 py-8 max-w-5xl">
+      <main className="container mx-auto px-4 py-8 max-w-5xl pb-24 md:pb-8">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold mb-2">Browse Vocabulary</h1>
@@ -90,7 +96,9 @@ export default function Decks() {
           )}
         </div>
 
-        {words.length === 0 ? (
+        {isLoadingWords ? (
+          <VocabularyGridSkeleton />
+        ) : words.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16">
               <BookOpen className="h-16 w-16 text-muted-foreground mb-4" />
@@ -135,6 +143,7 @@ export default function Decks() {
           </div>
         )}
       </main>
+      <MobileNav />
     </div>
   );
 }
