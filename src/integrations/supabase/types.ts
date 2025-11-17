@@ -62,6 +62,7 @@ export type Database = {
           daily_goal: number
           id: string
           review_date: string
+          total_points: number
           updated_at: string | null
           user_id: string
         }
@@ -71,6 +72,7 @@ export type Database = {
           daily_goal?: number
           id?: string
           review_date?: string
+          total_points?: number
           updated_at?: string | null
           user_id: string
         }
@@ -80,6 +82,7 @@ export type Database = {
           daily_goal?: number
           id?: string
           review_date?: string
+          total_points?: number
           updated_at?: string | null
           user_id?: string
         }
@@ -165,6 +168,7 @@ export type Database = {
           deck_id: string | null
           id: string
           next_review: string
+          points_earned: number
           rating: number
           reviewed_at: string
           user_id: string
@@ -174,6 +178,7 @@ export type Database = {
           deck_id?: string | null
           id?: string
           next_review?: string
+          points_earned?: number
           rating: number
           reviewed_at?: string
           user_id: string
@@ -183,6 +188,7 @@ export type Database = {
           deck_id?: string | null
           id?: string
           next_review?: string
+          points_earned?: number
           rating?: number
           reviewed_at?: string
           user_id?: string
@@ -203,6 +209,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_preferences: {
+        Row: {
+          ab_test_variant: string
+          created_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          ab_test_variant: string
+          created_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          ab_test_variant?: string
+          created_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

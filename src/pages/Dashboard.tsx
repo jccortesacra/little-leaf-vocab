@@ -15,6 +15,7 @@ export default function Dashboard() {
     dueToday: 0,
     new: 0,
     mastered: 0,
+    totalPoints: 0,
   });
 
   useEffect(() => {
@@ -30,76 +31,76 @@ export default function Dashboard() {
   }, [user]);
 
   const fetchStats = async () => {
-    try {
-      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-      const dailyGoal = 20;
+    if (!user) return;
 
-      // Get or create today's progress record
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      // Fetch or create today's progress record
       const { data: progressData, error: progressError } = await supabase
         .from('daily_progress')
-        .select('cards_reviewed, daily_goal')
-        .eq('user_id', user?.id)
+        .select('cards_reviewed, daily_goal, total_points')
+        .eq('user_id', user.id)
         .eq('review_date', today)
         .maybeSingle();
 
-      if (progressError) throw progressError;
+      if (progressError && progressError.code !== 'PGRST116') {
+        throw progressError;
+      }
 
-      let cardsReviewed = 0;
-
-      if (progressData) {
-        cardsReviewed = progressData.cards_reviewed;
-      } else {
-        // Create today's progress record
+      // If no progress record exists, create one
+      if (!progressData) {
         await supabase
           .from('daily_progress')
           .insert({
-            user_id: user?.id,
+            user_id: user.id,
             review_date: today,
             cards_reviewed: 0,
-            daily_goal: dailyGoal
+            daily_goal: 20,
+            total_points: 0,
           });
       }
 
-      // Calculate remaining cards for today
+      const cardsReviewed = progressData?.cards_reviewed || 0;
+      const dailyGoal = progressData?.daily_goal || 20;
+      const totalPoints = progressData?.total_points || 0;
+      
+      // Calculate due today as remaining cards to reach daily goal
       const dueToday = Math.max(0, dailyGoal - cardsReviewed);
 
-      // Get all decks
-      const { data: allDecks, error: decksError } = await supabase
+      // Count new cards (cards with no reviews)
+      const { count: newCount } = await supabase
         .from('decks')
-        .select('id');
-      
-      if (decksError) throw decksError;
+        .select('*', { count: 'exact', head: true })
+        .not('id', 'in', `(
+          SELECT DISTINCT deck_id 
+          FROM reviews 
+          WHERE user_id = '${user.id}'
+        )`);
 
-      // Get cards that have been reviewed at least once
-      const { data: reviewedCards, error: reviewedError } = await supabase
+      // Count mastered cards (reviewed 3+ times with good ratings)
+      const { data: masteredData } = await supabase
         .from('reviews')
         .select('deck_id')
-        .eq('user_id', user?.id);
-      
-      if (reviewedError) throw reviewedError;
+        .eq('user_id', user.id)
+        .gte('rating', 3);
 
-      const reviewedDeckIds = new Set(reviewedCards?.map(r => r.deck_id) || []);
-      const newCardCount = (allDecks?.length || 0) - reviewedDeckIds.size;
+      const cardReviewCounts = masteredData?.reduce((acc: Record<string, number>, review) => {
+        acc[review.deck_id] = (acc[review.deck_id] || 0) + 1;
+        return acc;
+      }, {});
 
-      // Get mastered cards (those with rating 4 in latest review)
-      const { data: masteredCards, error: masteredError } = await supabase
-        .from('reviews')
-        .select('deck_id, rating, reviewed_at')
-        .eq('user_id', user?.id)
-        .eq('rating', 4)
-        .order('reviewed_at', { ascending: false });
-      
-      if (masteredError) throw masteredError;
-
-      // Count unique mastered cards
-      const masteredDeckIds = new Set(masteredCards?.map(r => r.deck_id) || []);
+      const masteredCount = Object.values(cardReviewCounts || {}).filter(
+        (count) => count >= 3
+      ).length;
 
       setStats({
-        dueToday: dueToday,
-        new: newCardCount,
-        mastered: masteredDeckIds.size,
+        dueToday,
+        new: newCount || 0,
+        mastered: masteredCount,
+        totalPoints,
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching stats:', error);
       toast.error('Failed to load statistics');
     }
