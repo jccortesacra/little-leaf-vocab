@@ -68,31 +68,37 @@ export default function Dashboard() {
       // Calculate due today as remaining cards to reach daily goal
       const dueToday = Math.max(0, dailyGoal - cardsReviewed);
 
-      // Count new cards (cards with no reviews)
-      const { count: newCount } = await supabase
-        .from('decks')
-        .select('*', { count: 'exact', head: true })
-        .not('id', 'in', `(
-          SELECT DISTINCT deck_id 
-          FROM reviews 
-          WHERE user_id = '${user.id}'
-        )`);
-
-      // Count mastered cards (reviewed 3+ times with good ratings)
-      const { data: masteredData } = await supabase
-        .from('reviews')
+      // Count new cards reviewed today (first-time reviews)
+      const { data: reviewedToday } = await supabase
+        .from('daily_reviews')
         .select('deck_id')
         .eq('user_id', user.id)
-        .gte('rating', 3);
+        .eq('review_date', today);
 
-      const cardReviewCounts = masteredData?.reduce((acc: Record<string, number>, review) => {
-        acc[review.deck_id] = (acc[review.deck_id] || 0) + 1;
-        return acc;
-      }, {});
+      let newCount = 0;
+      if (reviewedToday) {
+        for (const { deck_id } of reviewedToday) {
+          const { count: totalReviews } = await supabase
+            .from('reviews')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('deck_id', deck_id);
+          
+          // If only 1 review exists for this deck, today was the first time
+          if (totalReviews === 1) {
+            newCount++;
+          }
+        }
+      }
 
-      const masteredCount = Object.values(cardReviewCounts || {}).filter(
-        (count) => count >= 3
-      ).length;
+      // Count cards mastered today (rating 3 = +1 point)
+      const { count: masteredCount } = await supabase
+        .from('reviews')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('points_earned', 1)
+        .gte('reviewed_at', `${today}T00:00:00.000Z`)
+        .lte('reviewed_at', `${today}T23:59:59.999Z`);
 
       setStats({
         dueToday,
