@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, RotateCcw } from "lucide-react";
 import { AudioPlayer } from "@/components/AudioPlayer";
+import { getOrAssignABVariant, ABVariant } from "@/lib/abTest";
 
 interface FlashCard {
   id: string;
@@ -27,6 +28,7 @@ export default function Review() {
   const [isFlipped, setIsFlipped] = useState(false);
   const [loadingCards, setLoadingCards] = useState(true);
   const [dailyProgress, setDailyProgress] = useState({ completed: 0, goal: 20 });
+  const [abVariant, setAbVariant] = useState<ABVariant>('emoji');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -37,6 +39,7 @@ export default function Review() {
   useEffect(() => {
     if (user) {
       fetchCards();
+      getOrAssignABVariant(user.id).then(setAbVariant);
     }
   }, [user, deckId]);
 
@@ -123,7 +126,7 @@ export default function Review() {
     }
   };
 
-  const handleRating = async (rating: number) => {
+  const handleRating = async (rating: number, points: number) => {
     if (!cards[currentIndex]) return;
 
     try {
@@ -131,29 +134,29 @@ export default function Review() {
       const now = new Date();
       const nextReview = new Date(now);
       
-      // Simple SRS logic
+      // Map 3-button system to SRS intervals
       const intervals = {
-        1: 10, // Again: 10 minutes
-        2: 60, // Hard: 1 hour
-        3: 1440, // Good: 1 day
-        4: 4320, // Easy: 3 days
+        1: 10,      // Forgot: review in 10 minutes
+        2: 1440,    // Almost: review tomorrow (1 day)
+        3: 4320,    // Got it: review in 3 days
       };
       
       nextReview.setMinutes(nextReview.getMinutes() + intervals[rating as keyof typeof intervals]);
 
-      // 1. Save review to reviews table (for SRS)
+      // 1. Save review with points
       const { error: reviewError } = await supabase
         .from('reviews')
         .insert({
           deck_id: cards[currentIndex].id,
           user_id: user?.id,
           rating,
+          points_earned: points,
           next_review: nextReview.toISOString(),
         });
 
       if (reviewError) throw reviewError;
 
-      // 2. Mark card as reviewed today (prevent duplicates)
+      // 2. Mark card as reviewed today
       const { error: dailyReviewError } = await supabase
         .from('daily_reviews')
         .insert({
@@ -163,19 +166,19 @@ export default function Review() {
         });
 
       if (dailyReviewError && dailyReviewError.code !== '23505') {
-        // Ignore duplicate key errors (card already marked as reviewed)
         throw dailyReviewError;
       }
 
-      // 3. Update daily progress counter
+      // 3. Update daily progress with points
       const { data: currentProgress } = await supabase
         .from('daily_progress')
-        .select('cards_reviewed')
+        .select('cards_reviewed, total_points')
         .eq('user_id', user?.id)
         .eq('review_date', today)
         .maybeSingle();
 
       const newCount = (currentProgress?.cards_reviewed || 0) + 1;
+      const newPoints = (currentProgress?.total_points || 0) + points;
 
       const { error: progressError } = await supabase
         .from('daily_progress')
@@ -183,6 +186,7 @@ export default function Review() {
           user_id: user?.id,
           review_date: today,
           cards_reviewed: newCount,
+          total_points: newPoints,
           daily_goal: 20,
         }, {
           onConflict: 'user_id,review_date'
@@ -190,19 +194,26 @@ export default function Review() {
 
       if (progressError) throw progressError;
 
-      // Update local progress state
+      // Update local state
       setDailyProgress(prev => ({ ...prev, completed: newCount }));
 
-      // Move to next card or complete session
+      // Show points feedback
+      if (points > 0) {
+        toast.success(`+${points} point! Keep it up! 🎉`);
+      } else if (points < 0) {
+        toast.error(`${points} point. You'll get it next time!`);
+      }
+
+      // Move to next card
       if (currentIndex < cards.length - 1) {
         setCurrentIndex(currentIndex + 1);
         setIsFlipped(false);
       } else {
         const remaining = 20 - newCount;
         if (remaining > 0) {
-          toast.success(`${remaining} more cards to reach your daily goal!`);
+          toast.success(`Session complete! ${remaining} more cards to reach your daily goal.`);
         } else {
-          toast.success('Daily goal complete! 🎉');
+          toast.success(`Daily goal complete! 🎉 Total points today: ${newPoints}`);
         }
         navigate('/dashboard');
       }
@@ -311,52 +322,47 @@ export default function Review() {
           </div>
         </div>
 
-        {isFlipped && (
-          <div className="space-y-4">
-            <p className="text-center font-medium mb-4 text-lg">How well did you know this?</p>
-            <div className="grid grid-cols-4 gap-3 mb-4">
-              <Button
-                variant="outline"
-                className="h-20 flex flex-col items-center justify-center bg-background hover:bg-accent"
-                onClick={() => handleRating(1)}
-              >
-                <div className="font-semibold text-base">Again</div>
-                <div className="text-xs text-muted-foreground mt-1">&lt;10m</div>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-20 flex flex-col items-center justify-center bg-background hover:bg-accent"
-                onClick={() => handleRating(2)}
-              >
-                <div className="font-semibold text-base">Hard</div>
-                <div className="text-xs text-muted-foreground mt-1">1h</div>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-20 flex flex-col items-center justify-center bg-background hover:bg-accent border-2 border-primary"
-                onClick={() => handleRating(3)}
-              >
-                <div className="font-semibold text-base text-primary">Good</div>
-                <div className="text-xs text-muted-foreground mt-1">1d</div>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-20 flex flex-col items-center justify-center bg-background hover:bg-accent"
-                onClick={() => handleRating(4)}
-              >
-                <div className="font-semibold text-base">Easy</div>
-                <div className="text-xs text-muted-foreground mt-1">3d</div>
-              </Button>
+        {isFlipped && (() => {
+          const buttonConfigs = {
+            emoji: [
+              { rating: 1, label: '❌ Forgot', points: -1, color: 'text-destructive' },
+              { rating: 2, label: '🤔 Almost', points: 0, color: 'text-warning' },
+              { rating: 3, label: '✅ Got it', points: 1, color: 'text-success' },
+            ],
+            text: [
+              { rating: 1, label: '1) I forgot', points: -1, color: 'text-destructive' },
+              { rating: 2, label: '2) I hesitated', points: 0, color: 'text-warning' },
+              { rating: 3, label: '3) I knew it', points: 1, color: 'text-success' },
+            ],
+          };
+
+          const buttons = buttonConfigs[abVariant];
+
+          return (
+            <div className="mt-6 space-y-4">
+              <p className="text-center font-medium mb-4 text-lg">How did you do?</p>
+              <div className="grid grid-cols-3 gap-3">
+                {buttons.map((btn) => (
+                  <Button
+                    key={btn.rating}
+                    variant="outline"
+                    className={`h-24 flex flex-col items-center justify-center bg-background hover:bg-accent transition-all ${
+                      btn.rating === 3 ? 'border-2 border-primary' : ''
+                    }`}
+                    onClick={() => handleRating(btn.rating, btn.points)}
+                  >
+                    <div className={`font-semibold text-lg ${btn.color}`}>
+                      {btn.label}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-2">
+                      {btn.points > 0 ? `+${btn.points}` : btn.points} pts
+                    </div>
+                  </Button>
+                ))}
+              </div>
             </div>
-            <Button
-              className="w-full h-14 text-base font-semibold bg-slate-800 hover:bg-slate-700 text-white"
-              onClick={() => handleRating(3)}
-            >
-              Next Card
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-          </div>
-        )}
+          );
+        })()}
       </main>
     </div>
   );
