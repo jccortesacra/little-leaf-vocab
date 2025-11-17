@@ -12,7 +12,7 @@ import { z } from "zod";
 
 const authSchema = z.object({
   email: z.string().trim().email("Invalid email address").max(255, "Email must be less than 255 characters"),
-  password: z.string().min(8, "Password must be at least 8 characters").max(128, "Password must be less than 128 characters")
+  password: z.string().min(1, "Password is required").max(128, "Password must be less than 128 characters")
 });
 
 export default function Auth() {
