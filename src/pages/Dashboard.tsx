@@ -244,11 +244,10 @@ export default function Dashboard() {
 
           <Button
             size="lg"
-            variant="outline"
-            className="w-full max-w-md h-14 text-lg"
+            className="w-full max-w-md h-14 text-lg bg-red-600 hover:bg-red-700 text-white font-bold shadow-lg"
             onClick={() => window.open('https://quest-1-the-argument-pit-64653015374.us-west1.run.app', '_blank')}
           >
-            Take Challenge
+            ⚔️ TAKE THE CHALLENGE ⚔️
             <Zap className="ml-2 h-5 w-5" />
           </Button>
 
